@@ -17,6 +17,7 @@ class Query:
     passengers: list[Passenger]
     language: str
     currency: str
+    exclude_basic: bool = False
 
     def pb(self) -> Info:
         """(internal) Protobuf data. (`Info`)"""
@@ -29,7 +30,13 @@ class Query:
 
     def to_bytes(self) -> bytes:
         """Convert this query to bytes."""
-        return self.pb().SerializeToString()
+        payload = self.pb().SerializeToString()
+
+        # Google Flights uses top-level field 25 (varint=1) to exclude basic economy fares.
+        if self.exclude_basic:
+            payload += b"\xC8\x01\x01"
+
+        return payload
 
     def to_str(self) -> str:
         """Convert this query to a string."""
@@ -139,6 +146,7 @@ def create_query(
     language: str | Literal[""] | Language = "",
     currency: str | Literal[""] | Currency = "",
     max_stops: int | None = None,
+    exclude_basic: bool = False,
 ) -> Query:
     """Create a query.
 
@@ -150,7 +158,11 @@ def create_query(
         language: Set the language. Use `""` (blank str) to let Google decide.
         currency: Set the currency. Use `""` (blank str) to let Google decide.
         max_stops (optional): Set the maximum stops for every flight query, if present.
+        exclude_basic (optional): Exclude basic economy fares (economy-only).
     """
+    if exclude_basic and seat != "economy":
+        raise ValueError("exclude_basic is only supported when seat='economy'")
+
     return Query(
         flight_data=[flight._setmaxstops(max_stops).pb() for flight in flights],
         seat=SEAT_LOOKUP[seat],
@@ -158,4 +170,5 @@ def create_query(
         passengers=passengers.pb(),
         language=language,
         currency=currency,
+        exclude_basic=exclude_basic,
     )

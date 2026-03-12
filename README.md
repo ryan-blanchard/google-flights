@@ -32,6 +32,7 @@ query = create_query(
     ],
     seat="economy",  # business/economy/first/premium-economy
     trip="one-way",  # multi-city/one-way/round-trip
+    exclude_basic=True,  # economy only: remove basic economy fares
     passengers=Passengers(adults=1),
     language="zh-TW",
 )

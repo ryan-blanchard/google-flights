@@ -50,6 +50,9 @@ Now it's time to see who's the people who got $$$ dollar signs in their names. E
 
 ...can be used, sorted from the least to the most expensive.
 
+To exclude basic economy fares, pass `exclude_basic=True` to `create_query(...)`.
+This option only applies when `seat="economy"`.
+
 ## Passengers
 A family trip? No problem. Just tell us how many adults, children & infants are there.
 
