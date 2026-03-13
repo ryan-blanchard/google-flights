@@ -40,6 +40,9 @@ class SingleFlight:
     arrival: SimpleDatetime
     duration: Annotated[int, "(minutes)"]
     plane_type: str
+    carrier_code: str | None = None
+    carrier_name: str | None = None
+    flight_number: str | None = None
 
 
 @dataclass

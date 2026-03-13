@@ -31,7 +31,6 @@ def parse(html: str) -> MetaList:
 # Data discovery by @kftang, huge shout out!
 def parse_js(js: str):
     data = js.split("data:", 1)[1].rsplit(",", 1)[0]
-    print(data)
 
     payload = json.loads(data)
 
@@ -52,12 +51,53 @@ def parse_js(js: str):
     meta = JsMetadata(alliances=alliances, airlines=airlines)
 
     flights = MetaList()
-    if payload[3][0] is None:
+
+    def section_at(idx: int) -> list:
+        if len(payload) <= idx or not isinstance(payload[idx], list) or not payload[idx]:
+            return []
+
+        section = payload[idx][0]
+        return section if isinstance(section, list) else []
+
+    top_flights = section_at(2)
+    other_flights = section_at(3)
+
+    if not top_flights and not other_flights:
         return flights
 
-    for k in payload[3][0]:
+    # Newer payloads split results into "Top flights" (payload[2][0]) and
+    # additional results (payload[3][0]). Keep both and deduplicate.
+    sections = [
+        *top_flights,
+        *other_flights,
+    ]
+    seen: set[tuple] = set()
+
+    for k in sections:
+        if not k:
+            continue
+
         flight = k[0]
         price = k[1][0][1]
+
+        # Signature to avoid duplicates between top and additional sections.
+        signature = (
+            price,
+            tuple(
+                (
+                    single_flight[3],  # from code
+                    single_flight[6],  # to code
+                    tuple(single_flight[8]),  # departure time
+                    tuple(single_flight[20]),  # departure date
+                    tuple(single_flight[10]),  # arrival time
+                    tuple(single_flight[21]),  # arrival date
+                )
+                for single_flight in flight[2]
+            ),
+        )
+        if signature in seen:
+            continue
+        seen.add(signature)
 
         typ = flight[0]
         airlines = flight[1]
@@ -79,6 +119,17 @@ def parse_js(js: str):
             plane_type = single_flight[17]
 
             duration = single_flight[11]
+            marketing = single_flight[22] if len(single_flight) > 22 else None
+            carrier_code = None
+            carrier_name = None
+            flight_number = None
+            if isinstance(marketing, (list, tuple)):
+                if len(marketing) > 0 and marketing[0]:
+                    carrier_code = str(marketing[0]).strip().upper()
+                if len(marketing) > 1 and marketing[1]:
+                    flight_number = str(marketing[1]).strip()
+                if len(marketing) > 3 and marketing[3]:
+                    carrier_name = str(marketing[3]).strip()
 
             sg_flights.append(
                 SingleFlight(
@@ -88,6 +139,9 @@ def parse_js(js: str):
                     arrival=arrival,
                     duration=duration,
                     plane_type=plane_type,
+                    carrier_code=carrier_code or None,
+                    carrier_name=carrier_name or None,
+                    flight_number=flight_number or None,
                 )
             )
 
